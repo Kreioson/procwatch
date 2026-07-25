@@ -29,7 +29,8 @@ fn main() {
 
         "watch" => {
             let interval = find_arg(rest, "--interval").map_or(2, |v| parse_duration(v).unwrap_or(2) as u64);
-            watch::run_watch(interval);
+            let sort = find_arg(rest, "--sort").unwrap_or("cpu");
+            watch::run_watch(interval, sort);
         }
 
         "history" => {

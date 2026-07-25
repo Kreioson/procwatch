@@ -5,7 +5,7 @@ use crate::format;
 use crate::storage;
 
 /// Live-refresh mode — clears screen and re-prints every `interval`.
-pub fn run_watch(interval_secs: u64) {
+pub fn run_watch(interval_secs: u64, sort_by: &str) {
     let interval = Duration::from_secs(interval_secs);
     let top_n = 15;
     let daemon_running = storage::daemon_is_running();
@@ -44,9 +44,20 @@ pub fn run_watch(interval_secs: u64) {
             .collect();
 
         processes.sort_by(|a, b| {
-            b.cpu_pct
-                .partial_cmp(&a.cpu_pct)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            match sort_by {
+                "mem" | "memory" => b.mem_mb
+                    .partial_cmp(&a.mem_mb)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+                "disk" => {
+                    let a_total = a.disk_r + a.disk_w;
+                    let b_total = b.disk_r + b.disk_w;
+                    b_total.partial_cmp(&a_total)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }
+                _ => b.cpu_pct
+                    .partial_cmp(&a.cpu_pct)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            }
         });
         processes.truncate(top_n);
 
