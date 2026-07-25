@@ -1,0 +1,13 @@
+[package]
+name = "procwatch"
+version = "0.1.0"
+description = "Ultra-minimal process historian — track what processes eat your resources over time"
+edition = "2021"
+
+[dependencies]
+sysinfo = "0.39"
+
+[profile.release]
+lto = true
+opt-level = "z"
+strip = true
