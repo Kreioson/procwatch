@@ -111,14 +111,11 @@ fn spawn_daemon(interval: u64) {
         }
     };
 
-    let child = match std::process::Command::new(&exe)
-        .arg("daemon")
-        .env("PROCWATCH_DAEMONIZED", "1")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .stdin(std::process::Stdio::null())
-        .spawn()
-    {
+    // On Unix, simply spawn with null IO — child is a separate process.
+    // On Windows, use `start /B` to fully detach from the console.
+    let child = spawn_background(&exe);
+
+    let child = match child {
         Ok(c) => c,
         Err(e) => {
             eprintln!("procwatch: failed to spawn daemon: {e}");
@@ -126,9 +123,13 @@ fn spawn_daemon(interval: u64) {
         }
     };
 
-    std::thread::sleep(Duration::from_millis(300));
+    // Wait for the daemon to write its PID file
+    let daemon_pid = (0..30).into_iter().find_map(|_| {
+        std::thread::sleep(Duration::from_millis(100));
+        storage::read_pid()
+    }).unwrap_or(child.id());
 
-    println!("procwatch daemon started (PID {})", child.id());
+    println!("procwatch daemon started (PID {daemon_pid})");
     println!(
         "  sampling every {interval}s   data: {}",
         storage::get_data_dir().display()
@@ -137,6 +138,30 @@ fn spawn_daemon(interval: u64) {
     println!("  run `procwatch watch` for live-refresh mode");
     println!("  run `procwatch stop` to stop the daemon");
     std::process::exit(0);
+}
+
+#[cfg(unix)]
+fn spawn_background(exe: &std::path::Path) -> std::io::Result<std::process::Child> {
+    std::process::Command::new(exe)
+        .arg("daemon")
+        .env("PROCWATCH_DAEMONIZED", "1")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .stdin(std::process::Stdio::null())
+        .spawn()
+}
+
+#[cfg(windows)]
+fn spawn_background(exe: &std::path::Path) -> std::io::Result<std::process::Child> {
+    // `start /B` launches the process detached from the console.
+    // Closing the terminal won't kill the daemon.
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "/B", &exe.display().to_string(), "daemon"])
+        .env("PROCWATCH_DAEMONIZED", "1")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .stdin(std::process::Stdio::null())
+        .spawn()
 }
 
 /// Stop the daemon by killing the process in the PID file.
