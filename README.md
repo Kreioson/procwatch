@@ -80,12 +80,65 @@ ts,pid,name,cpu_pct,mem_mb,cpu_ms,disk_r,disk_w
 sudo cp procwatch /usr/local/bin/
 ```
 
-### Windows
+### Windows — step by step
 
-Use Task Scheduler for auto-start on boot:
+**1.** Download `procwatch-v0.1.0-x86_64-windows.exe` from the [releases page](https://github.com/Kreioson/procwatch/releases).
+
+**2.** Create a folder for it (no admin needed):
+
+```powershell
+mkdir C:\Tools\procwatch
+```
+
+Move or copy the exe there and rename it to `procwatch.exe`.
+
+**3.** Add it to PATH so you can type `procwatch` from any terminal:
+
+```powershell
+# Run this in PowerShell (NOT as admin — it's per-user)
+[Environment]::SetEnvironmentVariable(
+    "PATH",
+    [Environment]::GetEnvironmentVariable("PATH", "User") + ";C:\Tools\procwatch",
+    "User"
+)
+```
+
+Restart your terminal. Now `procwatch help` works everywhere.
+
+**4.** Start the daemon (one time per boot, or set it to auto-start):
+
+```powershell
+# Manual start — stays on until reboot or you stop it
+procwatch daemon
+```
+
+**5.** Use it:
+
+```powershell
+procwatch                 # live processes + history
+procwatch watch           # live-refresh mode
+procwatch watch --sort mem  # sorted by memory
+procwatch history --since 1h --sort cpu  # top offenders
+```
+
+**6.** Stop the daemon when you want:
+
+```powershell
+taskkill /F /IM procwatch.exe
+```
+
+#### Auto-start on boot (Task Scheduler)
+
+Run this **once as Administrator** — the daemon starts 30s after you log in, survives reboots, and auto-restarts if it crashes:
 
 ```powershell
 schtasks /Create /SC ONLOGON /TN "procwatch-daemon" /TR "C:\Tools\procwatch\procwatch.exe daemon" /DELAY 0000:30 /RL HIGHEST /IT /F
+```
+
+To remove it later:
+
+```powershell
+schtasks /Delete /TN "procwatch-daemon" /F
 ```
 
 ### Build from source
